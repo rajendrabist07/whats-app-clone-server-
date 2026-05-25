@@ -20,11 +20,12 @@ dotenv.config();
 
 const app = express();
 const httpServer = http.createServer(app);
+const allowedOrigins = getAllowedOrigins();
 
 // IMPORTANT: Create Socket.io on the HTTP server (not express app)
 export const io = new Server(httpServer, {
     cors: {
-        origin: process.env.CLIENT_URL,
+        origin: allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true,
     },
@@ -41,7 +42,13 @@ connectDB();
 // Security Middlewares
 app.use(helmet());
 app.use(cors({
-    origin: process.env.CLIENT_URL,
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true, // Allow cookies
 }));
 
@@ -70,7 +77,7 @@ app.get('/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() 
 // Global Error Handler (MUST be last middleware)
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 httpServer.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
         console.error(`Port ${PORT} is already in use. Set a different PORT in server/.env and update client/.env to match.`);
@@ -83,3 +90,20 @@ httpServer.on('error', (error) => {
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
 });
+
+function getAllowedOrigins() {
+    const origins = [
+        process.env.CLIENT_URL,
+        process.env.CLIENT_URLS,
+    ]
+        .filter(Boolean)
+        .flatMap((value) => value.split(','))
+        .map((origin) => origin.trim().replace(/\/$/, ''))
+        .filter(Boolean);
+
+    if (origins.length === 0) {
+        throw new Error('Set CLIENT_URL in server/.env or Render environment variables');
+    }
+
+    return [...new Set(origins)];
+}

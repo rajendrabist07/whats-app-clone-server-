@@ -93,6 +93,22 @@ LOG_LEVEL=info
 
 Never commit real `.env` files or production secrets.
 
+For Render production, set:
+
+```env
+NODE_ENV=production
+CLIENT_URL=https://whats-app-clone-client-liart.vercel.app
+```
+
+Render will provide `PORT` automatically. The frontend must use the public Render URL:
+
+```env
+VITE_API_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com/api/v1
+VITE_SOCKET_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com
+```
+
+The Render service ID, for example `srv-d8a39t7avr4c73d4ji50`, is not the public browser URL.
+
 ## Installation
 
 ```bash
@@ -321,7 +337,7 @@ Check server logs first. Common causes:
 Make sure:
 
 ```env
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=https://whats-app-clone-client-liart.vercel.app
 ```
 
 matches the actual Vite dev server URL.

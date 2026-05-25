@@ -13,20 +13,28 @@ export const generateRefreshToken = (userId) => {
 };
 
 export const setTokenCookies = (res, accessToken, refreshToken) => {
-    // HttpOnly: JS cannot access this cookie (XSS protection)
-    // Secure: only sent over HTTPS in production
-    // SameSite: CSRF protection
     res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        ...getCookieOptions(),
         maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        ...getCookieOptions(),
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
+};
+
+export const clearTokenCookies = (res) => {
+    res.clearCookie('accessToken', getCookieOptions());
+    res.clearCookie('refreshToken', getCookieOptions());
+};
+
+const getCookieOptions = () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    return {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+    };
 };

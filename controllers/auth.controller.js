@@ -2,6 +2,7 @@ import { User } from '../models/User.model.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
+    clearTokenCookies,
     generateAccessToken,
     generateRefreshToken,
     setTokenCookies
@@ -117,8 +118,7 @@ export const logout = async (req, res, next) => {
             lastSeen: new Date(),
         });
 
-        res.clearCookie('accessToken');
-        res.clearCookie('refreshToken');
+        clearTokenCookies(res);
 
         return res.status(200).json(new ApiResponse(200, {}, 'Logged out successfully'));
     } catch (error) {
