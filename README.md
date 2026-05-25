@@ -72,7 +72,7 @@ Create `server/.env`:
 ```env
 NODE_ENV=development
 PORT=5001
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=https://whats-app-clone-client-liart.vercel.app
 
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/whatsapp-mern
 # or
@@ -108,6 +108,13 @@ VITE_SOCKET_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com
 ```
 
 The Render service ID, for example `srv-d8a39t7avr4c73d4ji50`, is not the public browser URL.
+
+For the Vercel frontend, do not use `http://localhost:5001`. Set the public Render URL:
+
+```env
+VITE_API_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com/api/v1
+VITE_SOCKET_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com
+```
 
 ## Installation
 
