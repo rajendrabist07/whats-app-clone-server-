@@ -73,6 +73,9 @@ Create `server/.env`:
 NODE_ENV=development
 PORT=5001
 CLIENT_URL=https://whats-app-clone-client-liart.vercel.app
+# Optional: comma-separated extra frontend origins.
+# The backend also allows this project's Vercel preview URLs automatically.
+CLIENT_URLS=http://localhost:5173
 
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/whatsapp-mern
 # or
@@ -103,17 +106,25 @@ CLIENT_URL=https://whats-app-clone-client-liart.vercel.app
 Render will provide `PORT` automatically. The frontend must use the public Render URL:
 
 ```env
-VITE_API_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com/api/v1
-VITE_SOCKET_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com
+VITE_API_URL=https://whats-app-clone-server-ksph.onrender.com/api/v1
+VITE_SOCKET_URL=https://whats-app-clone-server-ksph.onrender.com
 ```
+
+Vercel preview deployments have URLs like:
+
+```text
+https://whats-app-clone-client-fbfr76u92-rajendra-bists-projects.vercel.app
+```
+
+This backend allows that project preview URL pattern automatically. For any other frontend domain, add it to `CLIENT_URLS` as a comma-separated value.
 
 The Render service ID, for example `srv-d8a39t7avr4c73d4ji50`, is not the public browser URL.
 
 For the Vercel frontend, do not use `http://localhost:5001`. Set the public Render URL:
 
 ```env
-VITE_API_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com/api/v1
-VITE_SOCKET_URL=https://YOUR_RENDER_PUBLIC_URL.onrender.com
+VITE_API_URL=https://whats-app-clone-server-ksph.onrender.com/api/v1
+VITE_SOCKET_URL=https://whats-app-clone-server-ksph.onrender.com
 ```
 
 ## Installation

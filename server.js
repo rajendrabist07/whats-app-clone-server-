@@ -21,11 +21,25 @@ dotenv.config();
 const app = express();
 const httpServer = http.createServer(app);
 const allowedOrigins = getAllowedOrigins();
+const corsOptions = {
+    origin(origin, callback) {
+        if (isAllowedOrigin(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+};
+
+// Render runs Express behind a proxy and sends X-Forwarded-* headers.
+// express-rate-limit requires this setting to identify clients correctly.
+app.set('trust proxy', 1);
 
 // IMPORTANT: Create Socket.io on the HTTP server (not express app)
 export const io = new Server(httpServer, {
     cors: {
-        origin: allowedOrigins,
+        origin: corsOptions.origin,
         methods: ['GET', 'POST'],
         credentials: true,
     },
@@ -41,16 +55,7 @@ connectDB();
 
 // Security Middlewares
 app.use(helmet());
-app.use(cors({
-    origin(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
-    credentials: true, // Allow cookies
-}));
+app.use(cors(corsOptions));
 
 // Body Parsers
 app.use(express.json({ limit: '10mb' }));
@@ -106,4 +111,15 @@ function getAllowedOrigins() {
     }
 
     return [...new Set(origins)];
+}
+
+function isAllowedOrigin(origin) {
+    if (!origin) return true;
+
+    const normalizedOrigin = origin.trim().replace(/\/$/, '');
+    return allowedOrigins.includes(normalizedOrigin) || isAllowedVercelPreviewOrigin(normalizedOrigin);
+}
+
+function isAllowedVercelPreviewOrigin(origin) {
+    return /^https:\/\/whats-app-clone-client-[a-z0-9-]+-rajendra-bists-projects\.vercel\.app$/i.test(origin);
 }
