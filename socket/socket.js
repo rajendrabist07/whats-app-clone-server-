@@ -77,6 +77,44 @@ export const initSocket = (io) => {
             socket.to(chatId).emit('typing_stop', { chatId, userId });
         });
 
+        // WebRTC CALL SIGNALING EVENTS
+        // 1. Call Dialing
+        socket.on('call_user', ({ userToCall, signalData, from, name, type }) => {
+            const targetSocketId = onlineUsers.get(userToCall);
+            if (targetSocketId) {
+                io.to(targetSocketId).emit('incoming_call', {
+                    signal: signalData,
+                    from,
+                    name,
+                    type, // 'audio' | 'video'
+                });
+            }
+        });
+
+        // 2. Accept Call
+        socket.on('answer_call', ({ to, signal }) => {
+            const targetSocketId = onlineUsers.get(to);
+            if (targetSocketId) {
+                io.to(targetSocketId).emit('call_accepted', { signal });
+            }
+        });
+
+        // 3. End Call
+        socket.on('end_call', ({ to }) => {
+            const targetSocketId = onlineUsers.get(to);
+            if (targetSocketId) {
+                io.to(targetSocketId).emit('call_ended');
+            }
+        });
+
+        // 4. Relay ICE Candidates
+        socket.on('ice_candidate', ({ to, candidate }) => {
+            const targetSocketId = onlineUsers.get(to);
+            if (targetSocketId) {
+                io.to(targetSocketId).emit('ice_candidate', { candidate });
+            }
+        });
+
         // Message delivered receipt
         socket.on('message_delivered', async ({ messageId, chatId }) => {
             await Message.findByIdAndUpdate(messageId, {
