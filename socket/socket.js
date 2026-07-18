@@ -2,10 +2,22 @@ import { User } from '../models/User.model.js';
 import { Message } from '../models/Message.model.js';
 import { Chat } from '../models/Chat.model.js';
 import jwt from 'jsonwebtoken';
+import Redis from 'ioredis';
 
 // Track userId -> socketId mapping in memory
-// In production with multiple servers, use Redis instead
 export const onlineUsers = new Map();
+
+// Optional Redis client for multi-instance scaling
+let redis = null;
+if (process.env.REDIS_URL) {
+    try {
+        redis = new Redis(process.env.REDIS_URL);
+        redis.on('connect', () => console.log('Redis connected for presence state tracking'));
+        redis.on('error', (err) => console.error('Redis connection error:', err.message));
+    } catch (e) {
+        console.error('Failed to initialize Redis:', e.message);
+    }
+}
 
 export const initSocket = (io) => {
     io.use(async (socket, next) => {
@@ -17,7 +29,7 @@ export const initSocket = (io) => {
             const user = await User.findById(decoded.userId).select('-password');
             if (!user) return next(new Error('User not found'));
 
-            socket.user = user; // Attach user to socket
+            socket.user = user;
             next();
         } catch (error) {
             next(new Error('Authentication error'));
@@ -25,33 +37,35 @@ export const initSocket = (io) => {
     });
 
     io.on('connection', async (socket) => {
+        const userId = socket.user._id.toString();
         console.log(`User connected: ${socket.user.username} (${socket.id})`);
 
-        const userId = socket.user._id.toString();
-
-        // Store socket mapping
+        // Store mapping
         onlineUsers.set(userId, socket.id);
+        
+        if (redis) {
+            await redis.hset('kuraa:online_users', userId, socket.id);
+            await redis.set(`kuraa:presence:${userId}`, 'online');
+        }
 
-        // Mark user as online in DB
+        // Mark online in DB
         await User.findByIdAndUpdate(userId, { isOnline: true, lastSeen: new Date() });
 
-        // Notify all contacts that this user is online
+        // Notify contacts
         socket.broadcast.emit('user_online', { userId, isOnline: true });
 
-        // Join all user's chat rooms automatically
+        // Join rooms
         const chats = await Chat.find({ participants: userId }).select('_id');
         chats.forEach(chat => socket.join(chat._id.toString()));
-        console.log(`${socket.user.username} joined ${chats.length} chat rooms`);
+        console.log(`${socket.user.username} joined ${chats.length} rooms`);
 
-        // ─────────────────────────────────────────────────────
-        // EVENT: Join a specific chat room
+        // Join specific room manually
         socket.on('join_chat', (chatId) => {
             socket.join(chatId);
         });
 
-        // EVENT: Typing indicator
+        // Typing events
         socket.on('typing_start', ({ chatId }) => {
-            // Emit to all in room EXCEPT the sender
             socket.to(chatId).emit('typing_start', {
                 chatId,
                 userId,
@@ -63,7 +77,7 @@ export const initSocket = (io) => {
             socket.to(chatId).emit('typing_stop', { chatId, userId });
         });
 
-        // EVENT: Message delivered
+        // Message delivered receipt
         socket.on('message_delivered', async ({ messageId, chatId }) => {
             await Message.findByIdAndUpdate(messageId, {
                 [`status.${userId}`]: 'delivered',
@@ -75,9 +89,8 @@ export const initSocket = (io) => {
             });
         });
 
-        // EVENT: Message seen (user opened the chat)
+        // Messages read receipt
         socket.on('messages_seen', async ({ chatId }) => {
-            // Mark all messages in this chat as seen for this user
             await Message.updateMany(
                 {
                     chat: chatId,
@@ -87,7 +100,6 @@ export const initSocket = (io) => {
                 { $set: { [`status.${userId}`]: 'seen' } }
             );
 
-            // Reset unread count for this user
             await Chat.findByIdAndUpdate(chatId, {
                 $set: { [`unreadCount.${userId}`]: 0 },
             });
@@ -95,13 +107,20 @@ export const initSocket = (io) => {
             socket.to(chatId).emit('messages_seen', { chatId, userId });
         });
 
-        // EVENT: Disconnect
+        // Disconnect
         socket.on('disconnect', async () => {
             onlineUsers.delete(userId);
+            
+            if (redis) {
+                await redis.hdel('kuraa:online_users', userId);
+                await redis.set(`kuraa:presence:${userId}`, 'offline');
+            }
+
             await User.findByIdAndUpdate(userId, {
                 isOnline: false,
                 lastSeen: new Date(),
             });
+            
             socket.broadcast.emit('user_offline', { userId, lastSeen: new Date() });
             console.log(`User disconnected: ${socket.user.username}`);
         });
